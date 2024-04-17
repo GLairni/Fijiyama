@@ -5,21 +5,7 @@ package io.github.rocsg.fijiyama.registration;
 
 import java.util.ArrayList;
 
-import org.itk.simple.AffineTransform;
-import org.itk.simple.CenteredTransformInitializerFilter;
-import org.itk.simple.Command;
-import org.itk.simple.Euler2DTransform;
-import org.itk.simple.Euler3DTransform;
-import org.itk.simple.EventEnum;
-import org.itk.simple.Image;
-import org.itk.simple.ImageRegistrationMethod;
-import org.itk.simple.ResampleImageFilter;
-import org.itk.simple.Similarity3DTransform;
-import org.itk.simple.TranslationTransform;
-import org.itk.simple.VectorDouble;
-import org.itk.simple.VectorUInt32;
-import org.itk.simple.VersorRigid3DTransform;
-import org.itk.simple.RecursiveGaussianImageFilter;
+import org.itk.simple.*;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -303,7 +289,12 @@ public class ItkRegistration{
 		if(this.returnComposedTransformationIncludingTheInitialTransformationGiven) return this.transform;
 		else {
 			if(transformInit.isDense())return new ItkTransform((transformInit.getInverseOfDenseField()).addTransform(this.transform));
-			else return new ItkTransform(transformInit.getInverse().addTransform(this.transform));
+			//else return new ItkTransform(transformInit.getInverse().addTransform(this.transform));
+			else {
+				CompositeTransform transformInit2 = new CompositeTransform(transformInit);
+				transformInit2.addTransform(this.transform);
+				return new ItkTransform(transformInit2);
+			}
 		}
 	}
 
@@ -603,7 +594,7 @@ public class ItkRegistration{
 	public void updateView(int []dimensions,double sigmaFactor,int shrinkFactor,String viewText,ItkTransform currentTrans) {
 		if(this.displayRegistration==0)return;
 		this.gaussFilter.setSigma(sigmaFactor);
-		VectorDouble vectVoxSizes=new VectorDouble(3);
+		VectorDouble vectVoxSizes=new VectorDouble(new double[] {1,1,1});//[0,0,0
 		vectVoxSizes.set(0,this.voxelSizeReference[0]*this.imageSizeReference[0]/dimensions[0]);
 		vectVoxSizes.set(1,this.voxelSizeReference[1]*this.imageSizeReference[1]/dimensions[1]);
 		vectVoxSizes.set(2,this.voxelSizeReference[2]*this.imageSizeReference[2]/dimensions[2]);

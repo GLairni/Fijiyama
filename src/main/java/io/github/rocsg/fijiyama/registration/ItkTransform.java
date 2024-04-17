@@ -5,18 +5,7 @@ package io.github.rocsg.fijiyama.registration;
 import java.util.ArrayList;
 import java.util.Random;
 
-import org.itk.simple.ComposeImageFilter;
-import org.itk.simple.DisplacementFieldJacobianDeterminantFilter;
-import org.itk.simple.DisplacementFieldTransform;
-import org.itk.simple.Image;
-import org.itk.simple.ImageFileReader;
-import org.itk.simple.ImageFileWriter;
-import org.itk.simple.MultiplyImageFilter;
-import org.itk.simple.ResampleImageFilter;
-import org.itk.simple.SimpleITK;
-import org.itk.simple.Transform;
-import org.itk.simple.VectorDouble;
-import org.itk.simple.VectorIndexSelectionCastImageFilter;
+import org.itk.simple.*;
 import org.scijava.java3d.Transform3D;
 
 import ij.IJ;
@@ -1081,7 +1070,7 @@ public class ItkTransform extends Transform{
 	 * @return the point 3 d
 	 */
 	public Point3d transformPoint(Point3d pt) {
-		VectorDouble vect=new VectorDouble(3);
+		VectorDouble vect=new VectorDouble(new double[] {pt.x,pt.y,pt.z});
 		vect.set(0,pt.x);
 		vect.set(1,pt.y);
 		vect.set(2,pt.z);
@@ -1096,7 +1085,7 @@ public class ItkTransform extends Transform{
 	 * @return the double[]
 	 */
 	public double[] transformPoint(double[]coords) {
-		VectorDouble vect=new VectorDouble(3);
+		VectorDouble vect=new VectorDouble(new double[] {coords[0],coords[1],coords[2]});
 		vect.set(0,coords[0]);
 		vect.set(1,coords[1]);
 		vect.set(2,coords[2]);
@@ -1112,7 +1101,7 @@ public class ItkTransform extends Transform{
 	 * @return the point 3 d
 	 */
 	public Point3d transformPointInverse(Point3d pt) {
-		VectorDouble vect=new VectorDouble(3);
+		VectorDouble vect=new VectorDouble(new double[] {pt.x,pt.y,pt.z});
 		vect.set(0,pt.x);
 		vect.set(1,pt.y);
 		vect.set(2,pt.z);
@@ -1291,9 +1280,9 @@ public class ItkTransform extends Transform{
 	
 		
 		//Pour chaque voxel, calculer la transformee
-		VectorDouble coords=new VectorDouble(3);
+		VectorDouble coords=new VectorDouble(new double[] {0,0,0});
 		double distance=0;
-		VectorDouble coordsTrans=new VectorDouble(3);
+		VectorDouble coordsTrans=new VectorDouble(new double[] {0,0,0});
 		for(int k=0;k<dimZ;k++) {
 			IJ.log(" "+((k*100)/dimZ)+" %");
 			float[]tab=(float[])ret.getStack().getProcessor(k+1).getPixels();
@@ -1349,8 +1338,8 @@ public class ItkTransform extends Transform{
 		}
 
 		//Pour chaque voxel, calculer la transformee
-		VectorDouble coords=new VectorDouble(3);
-		VectorDouble coordsTrans=new VectorDouble(3);
+		VectorDouble coords=new VectorDouble(new double[] {0,0,0});
+		VectorDouble coordsTrans=new VectorDouble(new double[] {0,0,0});
 		for(int k=0;k<dimZ;k++) {
 			if(dimZ>200 && k%20==0)IJ.log("Flattening vector field, processing slice "+k+"/"+dimZ);
 			if(dimZ<200 && dimZ>50 && k%10==0)IJ.log("Flattening vector field, processing slice "+k+"/"+dimZ);
@@ -1474,10 +1463,14 @@ public class ItkTransform extends Transform{
 	 * @return the ${e.g(1).rsfl()}
 	 */
 	public ItkTransform addTransform(ItkTransform tr) {
-		super.addTransform(tr);
+		//super.addTransform(tr); !https://simpleitk.readthedocs.io/en/master/migrationGuide2.0.html
+		// equivalent to this.addTransform(tr);
+		CompositeTransform comp=new CompositeTransform(this);
+		comp.addTransform(this);
+
 		if(!this.isDense)this.isDense=tr.isDense;
 		this.isFlattened=false;
-		return this;
+		return new ItkTransform(comp); // ?
 	}
 	
 	/**
@@ -1487,10 +1480,14 @@ public class ItkTransform extends Transform{
 	 * @return the itk transform
 	 */
 	public ItkTransform addTransform(Transform tr) {
-		super.addTransform(tr);
+		//super.addTransform(tr); https://simpleitk.readthedocs.io/en/master/migrationGuide2.0.html
+		CompositeTransform comp=new CompositeTransform(this);
+		comp.addTransform(this);
 		if(!this.isDense)this.isDense=!tr.isLinear();
 		this.isFlattened=false;
-		return this;
+
+
+		return new ItkTransform(comp);
 	}
 
 	
@@ -1534,7 +1531,8 @@ public class ItkTransform extends Transform{
 		if(!this.isDense) {IJ.showMessage("Trying to write non dense transform");System.exit(0);}
 		String shortPath = (path != null) ? path.substring(0,path.indexOf('.')) : "";
 		ImageFileWriter imWri=new ImageFileWriter();
-		imWri.execute((new DisplacementFieldTransform((Transform)(this))).getDisplacementField(),shortPath+".mhd",false);
+		imWri.execute((new DisplacementFieldTransform((Transform)(this))).getDisplacementField());
+		//imWri.execute((new DisplacementFieldTransform((Transform)(this))).getDisplacementField(),shortPath+".mhd",false);
 	}
 	
 	/**
@@ -1764,13 +1762,6 @@ public class ItkTransform extends Transform{
 		for(int lin=0;lin<3;lin++)if(Math.abs(array[lin][3])>epsilonTranslation)return false;
 		return true;
 	}
-	/**
-	 * Converting the transformation matrix into a vector 
-	 *
-	 * @param epsilonRotation the epsilon rotation
-	 * @param epsilonTranslation the epsilon translation
-	 * @return true, if is identity affine transform
-	 */
 
 	public double[] from2dMatrixto1dVector(){
 		double[][] matrix=this.toAffineArrayRepresentation();
@@ -1861,7 +1852,7 @@ public class ItkTransform extends Transform{
 	public boolean isDense() {
 		return this.isDense;
 	}
-	
+
 	/**
 	 * Estimate global dilation factor.
 	 *

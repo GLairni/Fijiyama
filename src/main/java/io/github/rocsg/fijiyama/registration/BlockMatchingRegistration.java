@@ -9,6 +9,8 @@ import java.util.Date;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.awt.Toolkit;
+
+import org.itk.simple.CompositeTransform;
 import org.itk.simple.DisplacementFieldTransform;
 import org.itk.simple.Image;
 import org.itk.simple.ResampleImageFilter;
@@ -1081,7 +1083,11 @@ import math3d.Point3d;
 				ItkTransform trInv=(trInit.getFlattenDenseField(imgRefTemp).getInverseOfDenseField());
 				return new ItkTransform(trInv.addTransform(this.currentTransform));
 			}
-			else return new ItkTransform(trInit.getInverse().addTransform(this.currentTransform));
+			else {
+				CompositeTransform comp_tr = new CompositeTransform(trInit);
+				comp_tr.addTransform(this.currentTransform);
+				return new ItkTransform(comp_tr);
+			}
 		}
 	}
 	
