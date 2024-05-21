@@ -22,7 +22,6 @@ import org.itk.simple.VectorUInt32;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.Calibration;
-import io.github.rocsg.fijiyama.common.VitiDialogs;
 import io.github.rocsg.fijiyama.registration.ItkTransform;
 import math3d.Point3d;
 
@@ -143,8 +142,6 @@ public class ItkImagePlusInterface {
 		}
 	} 
 
-	
-	
 	public static double[] testConfiguration(){
 		IJ.showMessage("Now starting a speedup test. Please click OK, then wait a few seconds.");
 
@@ -180,9 +177,6 @@ public class ItkImagePlusInterface {
 		return new double[]{t0,t1};
 	}
 
-
-	
-	
 	
 	/**
 	 * Int array to vector U int 32.
@@ -192,7 +186,7 @@ public class ItkImagePlusInterface {
 	 */
 	/* Helper functions to convert between arrays (java std format) and VectorDouble (org.itk.simple format) */
 	public static VectorUInt32 intArrayToVectorUInt32(int[]array) {
-		VectorUInt32 vect=new VectorUInt32(new long[] {array.length});//[array.length
+		VectorUInt32 vect=new VectorUInt32(new long[array.length]);
 		for(int i=0;i<array.length ;i++)vect.set(i,(long) array[i]);
 		return vect;
 	}
@@ -216,7 +210,7 @@ public class ItkImagePlusInterface {
 	 * @return the vector double
 	 */
 	public static VectorDouble doubleArrayToVectorDouble(double[]array) {
-		VectorDouble vect=new VectorDouble(new double[] {array.length});//[array.length
+		VectorDouble vect=new VectorDouble(new double[array.length]);
 		for(int i=0;i<array.length ;i++)vect.set(i,array[i]);
 		return vect;
 	}
@@ -246,13 +240,33 @@ public class ItkImagePlusInterface {
 
 	
 	public static ImagePlus itkImageToImagePlus(Image img) {
-		if(flag_fijiyama_IO==FLAG_ON)return itkImageToImagePlusNew(img);
-		else return itkImageToImagePlusOld(img);
+		try {
+			return ConverteritkPlus.convertITK2ImagePlusDirectST(img);
+		}
+		catch(Exception e) {
+			try {
+				return ConverteritkPlus.convertITK2ImagePlusDirect(img);
+			}
+			catch(Exception e2) {
+				if(flag_fijiyama_IO==FLAG_ON)return itkImageToImagePlusNew(img);
+				else return itkImageToImagePlusOld(img);
+			}
+		}
 	}
 		
 	public static Image imagePlusToItkImage(ImagePlus img) {
-		if(flag_fijiyama_IO==FLAG_ON)return imagePlusToItkImageNew(img);
-		else return imagePlusToItkImageOld(img);	
+		try {
+			return ConverteritkPlus.convertImagePlus2ImageITKST(img);
+		}
+		catch(Exception e) {
+			try {
+				return ConverteritkPlus.convertImagePlus2ImageITK(img);
+			}
+			catch(Exception e2) {
+				if(flag_fijiyama_IO==FLAG_ON)return imagePlusToItkImageNew(img);
+				else return imagePlusToItkImageOld(img);
+			}
+		}
 	}
 	
 	

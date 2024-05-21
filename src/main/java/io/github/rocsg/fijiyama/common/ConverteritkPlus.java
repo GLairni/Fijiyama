@@ -1,7 +1,6 @@
 package io.github.rocsg.fijiyama.common;
 
 import ij.IJ;
-import ij.ImageJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.process.*;
@@ -46,11 +45,15 @@ public class ConverteritkPlus {
         ImagePlus transformed4 = convertITK2ImagePlusDirectST(convertImagePlus2ImageITKST(imgRef));
         transformed4.setDisplayRange(imgRef.getDisplayRangeMin(), imgRef.getDisplayRangeMax());
         transformed4.setTitle("Transformed Image 4");
+        ImagePlus transformed5 = convertITK2ImagePlusDirectST(convertImagePlus2ImageITKMT(imgRef));
+        transformed5.setDisplayRange(imgRef.getDisplayRangeMin(), imgRef.getDisplayRangeMax());
+        transformed5.setTitle("Transformed Image 5");
         imgRef.show();
         transformed.show();
         transformed2.show();
         transformed3.show();
         transformed4.show();
+        transformed5.show();
         // wait for the user to close the windows
         while (true) {
             if (!imgRef.isVisible() && !transformed.isVisible()) {
@@ -673,6 +676,66 @@ public class ConverteritkPlus {
 
         try {
             latch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        executor.shutdown();
+
+        // Free memory
+        System.gc();
+
+        return imageITK;
+    }
+
+    public static Image convertImagePlus2ImageITKMT(ImagePlus imagePlus) {
+        long[] coordinates = new long[3];
+        coordinates[0] = imagePlus.getWidth();
+        coordinates[1] = imagePlus.getHeight();
+        coordinates[2] = imagePlus.getStackSize();
+        VectorUInt32 size = new VectorUInt32(coordinates);
+        PixelIDValueEnum pixelType = convertBufferImage2ITKEnum(imagePlus);
+        Image imageITK = new Image(size, Objects.requireNonNull(pixelType), (imagePlus.isRGB() ? 3 : 1));
+
+        ImageStack stack = imagePlus.getImageStack();
+        ExecutorService executor = Executors.newCachedThreadPool();
+        CountDownLatch latch = new CountDownLatch(stack.getSize());
+        // Utiliser un ExecutorService avec plusieurs threads
+
+        for (int depthIndex = 0; depthIndex < stack.getSize(); depthIndex++) {
+            final int finalDepthIndex = depthIndex;
+            executor.submit(() -> {
+                ImageProcessor ip = stack.getProcessor(finalDepthIndex + 1); // Slice index is 1-based
+                Object data = ip.getPixels();
+                Buffer buffer = imageITK.getBufferAsBuffer();
+                synchronized (buffer) {
+                    // Ajouter les pixels à l'image ITK dans le bon ordre
+                    if (buffer instanceof ByteBuffer && data instanceof byte[]) {
+                        ((ByteBuffer) buffer).put((byte[]) data);
+                    } else if (buffer instanceof ShortBuffer && data instanceof short[]) {
+                        ((ShortBuffer) buffer).put((short[]) data);
+                    } else if (buffer instanceof CharBuffer && data instanceof short[]) {
+                        short[] pixels = (short[]) data;
+                        char[] pixelsChar = new char[pixels.length];
+                        for (int j = 0; j < pixels.length; j++) {
+                            pixelsChar[j] = (char) pixels[j];
+                        }
+                        ((CharBuffer) buffer).put(pixelsChar);
+                    } else if (buffer instanceof IntBuffer && data instanceof int[]) {
+                        ((IntBuffer) buffer).put((int[]) data);
+                    } else if (buffer instanceof FloatBuffer && data instanceof float[]) {
+                        ((FloatBuffer) buffer).put((float[]) data);
+                    } else if (buffer instanceof DoubleBuffer && data instanceof double[]) {
+                        ((DoubleBuffer) buffer).put((double[]) data);
+                    } else {
+                        throw new IllegalArgumentException("Unsupported pixel type or buffer type");
+                    }
+                }
+                latch.countDown();
+            });
+        }
+
+        try {
+            latch.await(); // Attendre que tous les threads aient terminé
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -1310,7 +1373,8 @@ public class ConverteritkPlus {
                         return null;
                     });
                 }
-            } else if (buffer instanceof ShortBuffer) {
+            }
+            else if (buffer instanceof ShortBuffer) {
                 short[] data = new short[width * height * max(1, depth)];
                 buffer.rewind();
 
